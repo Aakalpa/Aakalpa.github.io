@@ -1,0 +1,939 @@
+I"�<h1 id="cervical-cancer-risk-classification">Cervical Cancer Risk Classification</h1>
+
+<!-- --- -->
+
+<!-- title: "Cervical Cancer Risk Classification" -->
+
+<!-- author: "Aakalpa Aryal" -->
+
+<!-- date: "11/12/2020" -->
+
+<!-- output: -->
+
+<!--   html_document: -->
+
+<!--     toc: false -->
+
+<!--     hrbrthemes::ipsum: -->
+
+<!--     #code_folding: hide -->
+
+<!--   pdf_document: -->
+
+<!--     toc: true -->
+
+<!-- editor_options: -->
+
+<!--   chunk_output_type: console -->
+
+<!-- --- -->
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">library</span><span class="p">(</span><span class="n">tidyverse</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">Boruta</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">skimr</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">DT</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">skimr</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">janitor</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">hrbrthemes</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">tidylog</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">vip</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">broom</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">GGally</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">cowplot</span><span class="p">)</span><span class="w">
+</span><span class="n">theme_set</span><span class="p">(</span><span class="n">theme_ipsum_ps</span><span class="p">())</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="cervical-cancer-risk-clasification-dataset">Cervical cancer risk clasification dataset:</h3>
+
+<h4 id="httpswwwkagglecomloveallimgpostscervical-cancer-risk-classification"><em><a href="https://www.kaggle.com/loveall/img/posts/cervical-cancer-risk-classification">https://www.kaggle.com/loveall/img/posts/cervical-cancer-risk-classification</a></em></h4>
+
+<h3 id="original-dataset"><strong>Original dataset</strong></h3>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"kag_risk_factors_cervical_cancer.csv"</span><span class="p">)</span><span class="w">
+
+</span><span class="c1"># raw.data %&gt;%</span><span class="w">
+  </span><span class="c1"># datatable()</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="changing-column-names-to-bigcamelcase-converting--to-na-values-removing-empty-rows-and-columns">Changing column names to BigCamelCase, converting ‘?’ to ‘NA’ values, removing empty rows and columns</h3>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">clean_names</span><span class="p">(</span><span class="n">case</span><span class="o">=</span><span class="s1">'big_camel'</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">na_if</span><span class="p">(</span><span class="s1">'?'</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">remove_empty</span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="s2">"rows"</span><span class="p">,</span><span class="w"> </span><span class="s2">"cols"</span><span class="p">))</span><span class="w">
+
+</span><span class="n">glimpse</span><span class="p">(</span><span class="n">raw.data</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## Rows: 858
+## Columns: 36
+## $ Age                             &lt;dbl&gt; 18, 15, 34, 52, 46, 42, 51, 26, 45, 4…
+## $ NumberOfSexualPartners          &lt;chr&gt; "4.0", "1.0", "1.0", "5.0", "3.0", "3…
+## $ FirstSexualIntercourse          &lt;chr&gt; "15.0", "14.0", NA, "16.0", "21.0", "…
+## $ NumOfPregnancies                &lt;chr&gt; "1.0", "1.0", "1.0", "4.0", "4.0", "2…
+## $ Smokes                          &lt;chr&gt; "0.0", "0.0", "0.0", "1.0", "0.0", "0…
+## $ SmokesYears                     &lt;chr&gt; "0.0", "0.0", "0.0", "37.0", "0.0", "…
+## $ SmokesPacksYear                 &lt;chr&gt; "0.0", "0.0", "0.0", "37.0", "0.0", "…
+## $ HormonalContraceptives          &lt;chr&gt; "0.0", "0.0", "0.0", "1.0", "1.0", "0…
+## $ HormonalContraceptivesYears     &lt;chr&gt; "0.0", "0.0", "0.0", "3.0", "15.0", "…
+## $ Iud                             &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ IudYears                        &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDs                            &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsNumber                      &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsCondylomatosis              &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsCervicalCondylomatosis      &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsVaginalCondylomatosis       &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsVulvoPerinealCondylomatosis &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsSyphilis                    &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsPelvicInflammatoryDisease   &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsGenitalHerpes               &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsMolluscumContagiosum        &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsAids                        &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsHiv                         &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsHepatitisB                  &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsHpv                         &lt;chr&gt; "0.0", "0.0", "0.0", "0.0", "0.0", "0…
+## $ StDsNumberOfDiagnosis           &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsTimeSinceFirstDiagnosis     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
+## $ StDsTimeSinceLastDiagnosis      &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
+## $ DxCancer                        &lt;dbl&gt; 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0…
+## $ DxCin                           &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ DxHpv                           &lt;dbl&gt; 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0…
+## $ Dx                              &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0…
+## $ Hinselmann                      &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0…
+## $ Schiller                        &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0…
+## $ Citology                        &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ Biopsy                          &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0…
+</code></pre></div></div>
+
+<h3 id="converting-datatype-to-numeric-or-factor-whichever-suitable">Converting datatype to numeric or factor whichever suitable</h3>
+
+<h4 id="facotrs-for-those-columns-that-can-be-grouped-under-common-subject">facotrs for those columns that can be grouped under common subject</h4>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">mutate_all</span><span class="p">(</span><span class="n">as.numeric</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">mutate</span><span class="p">(</span><span class="n">Cancer</span><span class="o">=</span><span class="p">(</span><span class="n">Hinselmann</span><span class="o">+</span><span class="n">Schiller</span><span class="o">+</span><span class="n">Citology</span><span class="o">+</span><span class="n">Biopsy</span><span class="p">)</span><span class="o">&gt;</span><span class="m">0</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">Hinselmann</span><span class="o">:</span><span class="n">Biopsy</span><span class="p">))</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">mutate</span><span class="p">(</span><span class="n">SmokeAmount</span><span class="o">=</span><span class="n">SmokesYears</span><span class="o">*</span><span class="n">SmokesPacksYear</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="o">-</span><span class="n">SmokesYears</span><span class="p">,</span><span class="o">-</span><span class="n">SmokesPacksYear</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">mutate_if</span><span class="p">(</span><span class="n">is.numeric</span><span class="p">,</span><span class="w"> </span><span class="o">~</span><span class="nf">round</span><span class="p">(</span><span class="n">.</span><span class="p">,</span><span class="w"> </span><span class="m">1</span><span class="p">))</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">mutate</span><span class="p">(</span><span class="n">across</span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="n">NumberOfSexualPartners</span><span class="p">,</span><span class="w">
+                  </span><span class="n">NumOfPregnancies</span><span class="p">,</span><span class="n">Smokes</span><span class="p">,</span><span class="w">
+                  </span><span class="n">HormonalContraceptives</span><span class="p">,</span><span class="w">
+                  </span><span class="n">Iud</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDs</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsNumber</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsCondylomatosis</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsCervicalCondylomatosis</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsVaginalCondylomatosis</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsVulvoPerinealCondylomatosis</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsSyphilis</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsPelvicInflammatoryDisease</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsGenitalHerpes</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsMolluscumContagiosum</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsAids</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsHiv</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsHepatitisB</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsHpv</span><span class="p">,</span><span class="w">
+                  </span><span class="n">StDsNumberOfDiagnosis</span><span class="p">,</span><span class="w">
+                  </span><span class="n">DxCancer</span><span class="p">,</span><span class="w">
+                  </span><span class="n">DxCin</span><span class="p">,</span><span class="w">
+                  </span><span class="n">DxHpv</span><span class="p">,</span><span class="w">
+                  </span><span class="n">Dx</span><span class="p">,</span><span class="w">
+                  </span><span class="n">Cancer</span><span class="p">),</span><span class="n">as.factor</span><span class="p">))</span><span class="w">
+
+</span><span class="n">glimpse</span><span class="p">(</span><span class="n">raw.data</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## Rows: 858
+## Columns: 32
+## $ Age                             &lt;dbl&gt; 18, 15, 34, 52, 46, 42, 51, 26, 45, 4…
+## $ NumberOfSexualPartners          &lt;fct&gt; 4, 1, 1, 5, 3, 3, 3, 1, 1, 3, 3, 1, 4…
+## $ FirstSexualIntercourse          &lt;dbl&gt; 15, 14, NA, 16, 21, 23, 17, 26, 20, 1…
+## $ NumOfPregnancies                &lt;fct&gt; 1, 1, 1, 4, 4, 2, 6, 3, 5, NA, 4, 3, …
+## $ Smokes                          &lt;fct&gt; 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0…
+## $ HormonalContraceptives          &lt;fct&gt; 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1…
+## $ HormonalContraceptivesYears     &lt;dbl&gt; 0.0, 0.0, 0.0, 3.0, 15.0, 0.0, 0.0, 2…
+## $ Iud                             &lt;fct&gt; 0, 0, 0, 0, 0, 0, 1, 1, 0, NA, 0, 0, …
+## $ IudYears                        &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 7, 7, 0, NA, 0, 0, …
+## $ StDs                            &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsNumber                      &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsCondylomatosis              &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsCervicalCondylomatosis      &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsVaginalCondylomatosis       &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsVulvoPerinealCondylomatosis &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsSyphilis                    &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsPelvicInflammatoryDisease   &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsGenitalHerpes               &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsMolluscumContagiosum        &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsAids                        &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsHiv                         &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsHepatitisB                  &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsHpv                         &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsNumberOfDiagnosis           &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ StDsTimeSinceFirstDiagnosis     &lt;dbl&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
+## $ StDsTimeSinceLastDiagnosis      &lt;dbl&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
+## $ DxCancer                        &lt;fct&gt; 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0…
+## $ DxCin                           &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ DxHpv                           &lt;fct&gt; 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0…
+## $ Dx                              &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0…
+## $ Cancer                          &lt;fct&gt; FALSE, FALSE, FALSE, FALSE, FALSE, FA…
+## $ SmokeAmount                     &lt;dbl&gt; 0.0, 0.0, 0.0, 1369.0, 0.0, 0.0, 115.…
+</code></pre></div></div>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">skim</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left"> </th>
+      <th style="text-align: left"> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Name</td>
+      <td style="text-align: left">Piped data</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Number of rows</td>
+      <td style="text-align: left">858</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Number of columns</td>
+      <td style="text-align: left">32</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">_______________________</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Column type frequency:</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">factor</td>
+      <td style="text-align: left">25</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">numeric</td>
+      <td style="text-align: left">7</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">________________________</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Group variables</td>
+      <td style="text-align: left">None</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Data summary</p>
+
+<p><strong>Variable type: factor</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">skim_variable</th>
+      <th style="text-align: right">n_missing</th>
+      <th style="text-align: right">complete_rate</th>
+      <th style="text-align: left">ordered</th>
+      <th style="text-align: right">n_unique</th>
+      <th style="text-align: left">top_counts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">NumberOfSexualPartners</td>
+      <td style="text-align: right">26</td>
+      <td style="text-align: right">0.97</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">12</td>
+      <td style="text-align: left">2: 272, 3: 208, 1: 206, 4: 78</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">NumOfPregnancies</td>
+      <td style="text-align: right">56</td>
+      <td style="text-align: right">0.93</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">11</td>
+      <td style="text-align: left">1: 270, 2: 240, 3: 139, 4: 74</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Smokes</td>
+      <td style="text-align: right">13</td>
+      <td style="text-align: right">0.98</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 722, 1: 123</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">HormonalContraceptives</td>
+      <td style="text-align: right">108</td>
+      <td style="text-align: right">0.87</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">1: 481, 0: 269</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Iud</td>
+      <td style="text-align: right">117</td>
+      <td style="text-align: right">0.86</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 658, 1: 83</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDs</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 674, 1: 79</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsNumber</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">5</td>
+      <td style="text-align: left">0: 674, 2: 37, 1: 34, 3: 7</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsCondylomatosis</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 709, 1: 44</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsCervicalCondylomatosis</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: left">0: 753</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsVaginalCondylomatosis</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 749, 1: 4</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsVulvoPerinealCondylomatosis</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 710, 1: 43</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsSyphilis</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 735, 1: 18</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsPelvicInflammatoryDisease</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 752, 1: 1</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsGenitalHerpes</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 752, 1: 1</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsMolluscumContagiosum</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 752, 1: 1</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsAids</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: left">0: 753</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsHiv</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 735, 1: 18</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsHepatitisB</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 752, 1: 1</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsHpv</td>
+      <td style="text-align: right">105</td>
+      <td style="text-align: right">0.88</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 751, 1: 2</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsNumberOfDiagnosis</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1.00</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">4</td>
+      <td style="text-align: left">0: 787, 1: 68, 2: 2, 3: 1</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">DxCancer</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1.00</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 840, 1: 18</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">DxCin</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1.00</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 849, 1: 9</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">DxHpv</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1.00</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 840, 1: 18</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Dx</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1.00</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">0: 834, 1: 24</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Cancer</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1.00</td>
+      <td style="text-align: left">FALSE</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: left">FAL: 756, TRU: 102</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Variable type: numeric</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">skim_variable</th>
+      <th style="text-align: right">n_missing</th>
+      <th style="text-align: right">complete_rate</th>
+      <th style="text-align: right">mean</th>
+      <th style="text-align: right">sd</th>
+      <th style="text-align: right">p0</th>
+      <th style="text-align: right">p25</th>
+      <th style="text-align: right">p50</th>
+      <th style="text-align: right">p75</th>
+      <th style="text-align: right">p100</th>
+      <th style="text-align: left">hist</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Age</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">1.00</td>
+      <td style="text-align: right">26.82</td>
+      <td style="text-align: right">8.50</td>
+      <td style="text-align: right">13</td>
+      <td style="text-align: right">20</td>
+      <td style="text-align: right">25.0</td>
+      <td style="text-align: right">32.0</td>
+      <td style="text-align: right">84</td>
+      <td style="text-align: left">▇▅▁▁▁</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">FirstSexualIntercourse</td>
+      <td style="text-align: right">7</td>
+      <td style="text-align: right">0.99</td>
+      <td style="text-align: right">17.00</td>
+      <td style="text-align: right">2.80</td>
+      <td style="text-align: right">10</td>
+      <td style="text-align: right">15</td>
+      <td style="text-align: right">17.0</td>
+      <td style="text-align: right">18.0</td>
+      <td style="text-align: right">32</td>
+      <td style="text-align: left">▂▇▂▁▁</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">HormonalContraceptivesYears</td>
+      <td style="text-align: right">108</td>
+      <td style="text-align: right">0.87</td>
+      <td style="text-align: right">2.26</td>
+      <td style="text-align: right">3.76</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">0.5</td>
+      <td style="text-align: right">3.0</td>
+      <td style="text-align: right">30</td>
+      <td style="text-align: left">▇▁▁▁▁</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">IudYears</td>
+      <td style="text-align: right">117</td>
+      <td style="text-align: right">0.86</td>
+      <td style="text-align: right">0.51</td>
+      <td style="text-align: right">1.94</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">0.0</td>
+      <td style="text-align: right">0.0</td>
+      <td style="text-align: right">19</td>
+      <td style="text-align: left">▇▁▁▁▁</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsTimeSinceFirstDiagnosis</td>
+      <td style="text-align: right">787</td>
+      <td style="text-align: right">0.08</td>
+      <td style="text-align: right">6.14</td>
+      <td style="text-align: right">5.90</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: right">4.0</td>
+      <td style="text-align: right">8.0</td>
+      <td style="text-align: right">22</td>
+      <td style="text-align: left">▇▂▁▁▁</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">StDsTimeSinceLastDiagnosis</td>
+      <td style="text-align: right">787</td>
+      <td style="text-align: right">0.08</td>
+      <td style="text-align: right">5.82</td>
+      <td style="text-align: right">5.76</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: right">3.0</td>
+      <td style="text-align: right">7.5</td>
+      <td style="text-align: right">22</td>
+      <td style="text-align: left">▇▂▁▁▁</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">SmokeAmount</td>
+      <td style="text-align: right">13</td>
+      <td style="text-align: right">0.98</td>
+      <td style="text-align: right">7.14</td>
+      <td style="text-align: right">57.29</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">0</td>
+      <td style="text-align: right">0.0</td>
+      <td style="text-align: right">0.0</td>
+      <td style="text-align: right">1369</td>
+      <td style="text-align: left">▇▁▁▁▁</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="plots">Plots</h3>
+
+<h4 id="age">Age</h4>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">age1</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">count</span><span class="p">(</span><span class="n">Age</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">mutate</span><span class="p">(</span><span class="n">Age</span><span class="o">=</span><span class="n">factor</span><span class="p">(</span><span class="n">Age</span><span class="p">))</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggplot</span><span class="p">(</span><span class="n">aes</span><span class="p">(</span><span class="n">Age</span><span class="p">,</span><span class="n">n</span><span class="p">,</span><span class="n">fill</span><span class="o">=</span><span class="n">Cancer</span><span class="p">))</span><span class="o">+</span><span class="w">
+  </span><span class="n">geom_col</span><span class="p">()</span><span class="o">+</span><span class="w">
+  </span><span class="n">theme</span><span class="p">(</span><span class="n">axis.text.x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">element_text</span><span class="p">(</span><span class="n">angle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">90</span><span class="p">,</span><span class="w"> </span><span class="n">vjust</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0.5</span><span class="p">,</span><span class="w"> </span><span class="n">hjust</span><span class="o">=</span><span class="m">1</span><span class="p">))</span><span class="o">+</span><span class="w">
+  </span><span class="n">labs</span><span class="p">(</span><span class="n">subtitle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'Distribution of records according to age'</span><span class="p">)</span><span class="w">
+
+</span><span class="n">age2</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">count</span><span class="p">(</span><span class="n">Age</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">mutate</span><span class="p">(</span><span class="n">Age</span><span class="o">=</span><span class="n">factor</span><span class="p">(</span><span class="n">Age</span><span class="p">))</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggplot</span><span class="p">(</span><span class="n">aes</span><span class="p">(</span><span class="n">Age</span><span class="p">,</span><span class="n">n</span><span class="p">,</span><span class="n">fill</span><span class="o">=</span><span class="n">Cancer</span><span class="p">))</span><span class="o">+</span><span class="w">
+  </span><span class="n">geom_col</span><span class="p">(</span><span class="n">position</span><span class="o">=</span><span class="s1">'fill'</span><span class="p">)</span><span class="o">+</span><span class="w">
+  </span><span class="n">theme</span><span class="p">(</span><span class="n">axis.text.x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">element_text</span><span class="p">(</span><span class="n">angle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">90</span><span class="p">,</span><span class="w"> </span><span class="n">vjust</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0.5</span><span class="p">,</span><span class="w"> </span><span class="n">hjust</span><span class="o">=</span><span class="m">1</span><span class="p">))</span><span class="o">+</span><span class="w">
+  </span><span class="n">labs</span><span class="p">(</span><span class="n">subtitle</span><span class="o">=</span><span class="s1">'Ratio of cancer results in each age group'</span><span class="p">)</span><span class="w">
+
+</span><span class="n">cowplot</span><span class="o">::</span><span class="n">plot_grid</span><span class="p">(</span><span class="n">age1</span><span class="p">,</span><span class="w"> </span><span class="n">age2</span><span class="p">,</span><span class="w"> </span><span class="n">nrow</span><span class="o">=</span><span class="m">2</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-5-1.png" alt="" /><!-- --></p>
+
+<h3 id="number-of-sexual-partners">Number of sexual partners</h3>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">no_of_sexual_partners_1</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">count</span><span class="p">(</span><span class="n">NumberOfSexualPartners</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">filter</span><span class="p">(</span><span class="o">!</span><span class="nf">is.na</span><span class="p">(</span><span class="n">NumberOfSexualPartners</span><span class="p">))</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">group_by</span><span class="p">(</span><span class="n">NumberOfSexualPartners</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggplot</span><span class="p">(</span><span class="n">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">NumberOfSexualPartners</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">n</span><span class="p">,</span><span class="n">fill</span><span class="o">=</span><span class="n">Cancer</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w">
+  </span><span class="n">geom_col</span><span class="p">()</span><span class="o">+</span><span class="w">
+  </span><span class="n">labs</span><span class="p">(</span><span class="w">
+    </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'Number of sexual partners'</span><span class="p">,</span><span class="w">
+    </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'Frequency'</span><span class="p">,</span><span class="w">
+    </span><span class="n">subtitle</span><span class="o">=</span><span class="w"> </span><span class="s1">'Distribution of number of partners'</span><span class="w">
+  </span><span class="p">)</span><span class="w">
+
+</span><span class="n">no_of_sexual_partners_2</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">count</span><span class="p">(</span><span class="n">NumberOfSexualPartners</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">filter</span><span class="p">(</span><span class="o">!</span><span class="nf">is.na</span><span class="p">(</span><span class="n">NumberOfSexualPartners</span><span class="p">))</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">group_by</span><span class="p">(</span><span class="n">NumberOfSexualPartners</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggplot</span><span class="p">(</span><span class="n">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">NumberOfSexualPartners</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">n</span><span class="p">,</span><span class="n">fill</span><span class="o">=</span><span class="n">Cancer</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w">
+  </span><span class="n">geom_col</span><span class="p">(</span><span class="n">position</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'fill'</span><span class="p">)</span><span class="o">+</span><span class="w">
+  </span><span class="n">labs</span><span class="p">(</span><span class="w">
+    </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'Number of sexual partners'</span><span class="p">,</span><span class="w">
+    </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'Frequency'</span><span class="p">,</span><span class="w">
+    </span><span class="n">subtitle</span><span class="o">=</span><span class="w"> </span><span class="s1">'Ratio of cancer results among the distribution according to number of partners'</span><span class="w">
+  </span><span class="p">)</span><span class="w">
+
+</span><span class="n">cowplot</span><span class="o">::</span><span class="n">plot_grid</span><span class="p">(</span><span class="n">no_of_sexual_partners_1</span><span class="p">,</span><span class="n">no_of_sexual_partners_2</span><span class="p">,</span><span class="w"> </span><span class="n">nrow</span><span class="o">=</span><span class="m">2</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-6-1.png" alt="" /><!-- --></p>
+
+<h3 id="number-of-pregnancies">Number of pregnancies</h3>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">no_of_pregnancies_1</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">count</span><span class="p">(</span><span class="n">NumOfPregnancies</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">filter</span><span class="p">(</span><span class="o">!</span><span class="nf">is.na</span><span class="p">(</span><span class="n">NumOfPregnancies</span><span class="p">))</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggplot</span><span class="p">(</span><span class="n">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">NumOfPregnancies</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">n</span><span class="p">,</span><span class="n">fill</span><span class="o">=</span><span class="n">Cancer</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w">
+  </span><span class="n">geom_col</span><span class="p">()</span><span class="o">+</span><span class="w">
+  </span><span class="n">labs</span><span class="p">(</span><span class="w">
+    </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'Number of Pregnancies'</span><span class="p">,</span><span class="w">
+    </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'Frequency'</span><span class="p">,</span><span class="w">
+    </span><span class="n">subtitle</span><span class="o">=</span><span class="w"> </span><span class="s1">'Distribution of number of pregnancies'</span><span class="w">
+  </span><span class="p">)</span><span class="w">
+
+</span><span class="n">no_of_pregnancies_2</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">count</span><span class="p">(</span><span class="n">NumOfPregnancies</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">filter</span><span class="p">(</span><span class="o">!</span><span class="nf">is.na</span><span class="p">(</span><span class="n">NumOfPregnancies</span><span class="p">))</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggplot</span><span class="p">(</span><span class="n">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">NumOfPregnancies</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="o">=</span><span class="n">n</span><span class="p">,</span><span class="n">fill</span><span class="o">=</span><span class="n">Cancer</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w">
+  </span><span class="n">geom_col</span><span class="p">(</span><span class="n">position</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'fill'</span><span class="p">)</span><span class="o">+</span><span class="w">
+  </span><span class="n">labs</span><span class="p">(</span><span class="w">
+    </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'Number of Pregnancies'</span><span class="p">,</span><span class="w">
+    </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'Frequency'</span><span class="p">,</span><span class="w">
+    </span><span class="n">subtitle</span><span class="o">=</span><span class="w"> </span><span class="s1">'Distribution of number of pregnancies'</span><span class="w">
+  </span><span class="p">)</span><span class="w">
+
+</span><span class="n">cowplot</span><span class="o">::</span><span class="n">plot_grid</span><span class="p">(</span><span class="n">no_of_pregnancies_1</span><span class="p">,</span><span class="n">no_of_pregnancies_2</span><span class="p">,</span><span class="w"> </span><span class="n">nrow</span><span class="o">=</span><span class="m">2</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-7-1.png" alt="" /><!-- --></p>
+
+<h3 id="ggpairs">GGPairs</h3>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">Age</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-1.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">NumberOfSexualPartners</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-2.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">FirstSexualIntercourse</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-3.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">NumOfPregnancies</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-4.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">Smokes</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-5.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">SmokeAmount</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-6.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">HormonalContraceptives</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-7.png" alt="abc" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">Iud</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-8.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">IudYears</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-9.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">StDs</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-10.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">StDsNumber</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-11.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">StDsCondylomatosis</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-12.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">StDsCervicalCondylomatosis</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-13.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">StDsVaginalCondylomatosis</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-14.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">StDsVulvoPerinealCondylomatosis</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-15.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">StDsNumberOfDiagnosis</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-16.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">DxCancer</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-17.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">DxCin</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-18.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">Dx</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">ggpairs</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-8-19.png" alt="" /><!-- --></p>
+
+<h3 id="logistic-regression-model">logistic regression model</h3>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">new.data</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">raw.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="n">Age</span><span class="p">,</span><span class="n">Smokes</span><span class="p">,</span><span class="n">Cancer</span><span class="p">)</span><span class="w">
+
+</span><span class="n">model</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">glm</span><span class="p">(</span><span class="n">Cancer</span><span class="o">~</span><span class="n">Age</span><span class="o">+</span><span class="n">Smokes</span><span class="o">+</span><span class="n">Age</span><span class="o">*</span><span class="n">Smokes</span><span class="p">,</span><span class="n">new.data</span><span class="p">,</span><span class="n">family</span><span class="o">=</span><span class="s1">'binomial'</span><span class="p">)</span><span class="w">
+
+
+</span><span class="n">model</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">tidy</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## # A tibble: 4 x 5
+##   term         estimate std.error statistic     p.value
+##   &lt;chr&gt;           &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;       &lt;dbl&gt;
+## 1 (Intercept) -2.12        0.404    -5.24   0.000000160
+## 2 Age          0.000702    0.0145    0.0486 0.961
+## 3 Smokes1     -0.279       0.787    -0.355  0.723
+## 4 Age:Smokes1  0.0275      0.0257    1.07   0.285
+</code></pre></div></div>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">model</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">glance</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## # A tibble: 1 x 8
+##   null.deviance df.null logLik   AIC   BIC deviance df.residual  nobs
+##           &lt;dbl&gt;   &lt;int&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;       &lt;int&gt; &lt;int&gt;
+## 1          615.     844  -305.  617.  636.     609.         841   845
+</code></pre></div></div>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">model</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">vip</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-9-1.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">model</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">vi</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## # A tibble: 3 x 3
+##   Variable    Importance Sign
+##   &lt;chr&gt;            &lt;dbl&gt; &lt;chr&gt;
+## 1 Age:Smokes1     1.07   POS
+## 2 Smokes1         0.355  NEG
+## 3 Age             0.0486 POS
+</code></pre></div></div>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">par</span><span class="p">(</span><span class="n">mfrow</span><span class="o">=</span><span class="nf">c</span><span class="p">(</span><span class="m">2</span><span class="p">,</span><span class="m">2</span><span class="p">))</span><span class="w">
+</span><span class="n">plot</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="/img/posts/cervical-cancer-risk-classification/unnamed-chunk-9-2.png" alt="" /><!-- --></p>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">anova</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## Analysis of Deviance Table
+##
+## Model: binomial, link: logit
+##
+## Response: Cancer
+##
+## Terms added sequentially (first to last)
+##
+##
+##            Df Deviance Resid. Df Resid. Dev
+## NULL                         844     614.50
+## Age         1   0.7209       843     613.78
+## Smokes      1   3.2835       842     610.50
+## Age:Smokes  1   1.1292       841     609.37
+</code></pre></div></div>
+
+<h3 id="prediction">Prediction</h3>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">test.data</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">new.data</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">select</span><span class="p">(</span><span class="o">-</span><span class="n">Cancer</span><span class="p">)</span><span class="w">
+
+</span><span class="n">final</span><span class="w"> </span><span class="o">&lt;-</span><span class="w">
+  </span><span class="n">tibble</span><span class="p">(</span><span class="n">predicted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">predict</span><span class="p">(</span><span class="n">model</span><span class="p">,</span><span class="n">test.data</span><span class="p">),</span><span class="w"> </span><span class="n">actual</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new.data</span><span class="o">$</span><span class="n">Cancer</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">mutate</span><span class="p">(</span><span class="n">predicted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">predicted</span><span class="o">&gt;</span><span class="m">0</span><span class="p">)</span><span class="w">
+
+</span><span class="n">final</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## # A tibble: 858 x 2
+##    predicted actual
+##    &lt;lgl&gt;     &lt;fct&gt;
+##  1 FALSE     FALSE
+##  2 FALSE     FALSE
+##  3 FALSE     FALSE
+##  4 FALSE     FALSE
+##  5 FALSE     FALSE
+##  6 FALSE     FALSE
+##  7 FALSE     TRUE
+##  8 FALSE     FALSE
+##  9 FALSE     FALSE
+## 10 FALSE     FALSE
+## # … with 848 more rows
+</code></pre></div></div>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">final</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">filter</span><span class="p">(</span><span class="n">predicted</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">actual</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## # A tibble: 745 x 2
+##    predicted actual
+##    &lt;lgl&gt;     &lt;fct&gt;
+##  1 FALSE     FALSE
+##  2 FALSE     FALSE
+##  3 FALSE     FALSE
+##  4 FALSE     FALSE
+##  5 FALSE     FALSE
+##  6 FALSE     FALSE
+##  7 FALSE     FALSE
+##  8 FALSE     FALSE
+##  9 FALSE     FALSE
+## 10 FALSE     FALSE
+## # … with 735 more rows
+</code></pre></div></div>
+
+<div class="language-r highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">final</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+  </span><span class="n">filter</span><span class="p">(</span><span class="n">predicted</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">actual</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>## # A tibble: 100 x 2
+##    predicted actual
+##    &lt;lgl&gt;     &lt;fct&gt;
+##  1 FALSE     TRUE
+##  2 FALSE     TRUE
+##  3 FALSE     TRUE
+##  4 FALSE     TRUE
+##  5 FALSE     TRUE
+##  6 FALSE     TRUE
+##  7 FALSE     TRUE
+##  8 FALSE     TRUE
+##  9 FALSE     TRUE
+## 10 FALSE     TRUE
+## # … with 90 more rows
+</code></pre></div></div>
+:ET

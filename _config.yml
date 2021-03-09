@@ -1,4 +1,4 @@
-title: Statistics
+title: Aakalpa Aryal
 email: aakalpa.aryal@gmail.com
 description: A portfolio plus blog posts
 author: Aakalpa Aryal
@@ -23,3 +23,5 @@ plugins:
   - jekyll-feed
   - jekyll-paginate
   - jekyll-sitemap ## Uncomment this line to silently generate a sitemaps.org compliant sitemap for your Jekyll site
+
+highlighter: rouge
